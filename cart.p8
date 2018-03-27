@@ -1,71 +1,99 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
-local pumpkin
 
--- lua scripting language
+local pumpkin
+local coin
+local score
 
 function _init()
-	-- all the code that
-	-- happens when the cart is
-	-- first run
-
+	score=0
 	-- create a pumpkin object
 	pumpkin={
 		x=64,
 		y=64,
-		color=8,
-		name="henrietta"
+		width=8,
+		height=8,
+		move_speed=1,
+		is_horizontally_aligned=false,
+		is_vertically_aligned=false,
+		update=function(self)
+			if btn(1) then
+				self.x+=self.move_speed
+			end
+			if btn(0) then
+				self.x-=self.move_speed
+			end
+			if btn(3) then
+				self.y+=self.move_speed
+			end
+			if btn(2) then
+				self.y-=self.move_speed
+			end
+			-- check to see if the pumpkin is aligned with the coin
+			local top=self.y
+			local bottom=self.y+self.height
+			if top<coin.y and coin.y<bottom then
+				self.is_horizontally_aligned=true
+			else
+				self.is_horizontally_aligned=false
+			end
+			local left=self.x
+			local right=self.x+self.width
+			if left<coin.x and coin.x<right then
+				self.is_vertically_aligned=true
+			else
+				self.is_vertically_aligned=false
+			end
+			-- collect the coin
+			if self.is_horizontally_aligned and self.is_vertically_aligned and not coin.is_collected then
+				coin.is_collected=true
+				score+=1
+			end
+		end,
+		draw=function(self)
+			spr(4,self.x,self.y)
+			-- rect(self.x,self.y,self.x+self.width,self.y+self.height,7)
+			-- print(self.is_vertically_aligned,self.x+10,self.y,7)
+			-- print(self.is_horizontally_aligned,self.x+10,self.y+7,6)
+		end
+	}
+	coin={
+		x=80,
+		y=100,
+		is_collected=false,
+		update=function(self)
+		end,
+		draw=function(self)
+			if not self.is_collected then
+				spr(7,self.x-3,self.y-4)
+				-- pset(self.x,self.y,12)
+			end
+		end
 	}
 end
 
 function _update()
-	-- all the code that
-	-- updates the game state
-
-	-- all the code that moves our pumpkin
-	if btn(1) then -- checks if right arrow is held down
-		pumpkin.x+=1 -- move right
-	end
-	if btn(0) then -- checks if left arrow is held down
-		pumpkin.x-=1 -- move left
-	end
-	if btn(3) then -- checks if down arrow is held down
-		pumpkin.y+=1 -- move down
-	end
-	if btn(2) then -- checks if up arrow is held down
-		pumpkin.y-=1 -- move up
-	end
-
-	-- play a sound when a button is pressed
-	if btnp(4) then -- checks if z is pressed this frame
-		sfx(2) -- playing a cute lil' diddy sound effect
-	end
+	pumpkin:update()
+	coin:update()
 end
 
 function _draw()
-	-- all the code that
-	-- draws things to the screen
-	cls() -- clears the screen!
-	rect(10,10,100,60,12) -- draws a blue rectangle!
-	circ(40,40,20,14) -- draws a pink circle!
-	pset(10,100,10) -- draws a yellow pixel!
-	rectfill(80,10,90,20,3) -- draws a ~filled~ green square!
-	-- draw our pumpkin
-	-- circfill(pumpkin.x,pumpkin.y,6,9) -- draws a cute lil' orange circle
-	pal(9,pumpkin.color) -- change orange to red
-	spr(4,pumpkin.x,pumpkin.y) -- draw a pumpkin!
-	print(pumpkin.name,pumpkin.x-3,pumpkin.y-7,7)
+	-- clear the screen
+	cls()
+	print(score,5,5,7)
+	pumpkin:draw()
+	coin:draw()
 end
 
 __gfx__
 000000000000000000500500000000000000b0000000b0000000b000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000cc0550cc00000000000b3000000b3000000b3000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000ccc55ccc00000000099b39400eeb3e200ccb3c10000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000ccc55ccc0000000099494994ee2e2ee2cc1c1cc1000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000cee55eec0000000094999494e2eee2e2c1ccc1c1000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000eee55eee0000000094999499e2eee2eec1ccc1cc000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000ee00ee00000000094999499e2eee2eec1ccc1cc000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000cc0550cc00000000000b3000000b3000000b3000009aa0000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000ccc55ccc00000000099b39400eeb3e200ccb3c1009aaaa000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000ccc55ccc0000000099494994ee2e2ee2cc1c1cc109aaaa000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000cee55eec0000000094999494e2eee2e2c1ccc1c109aaaa000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000eee55eee0000000094999499e2eee2eec1ccc1cc09aaaa000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000ee00ee00000000094999499e2eee2eec1ccc1cc009aa0000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000094994900e2ee2e00c1cc1c0000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 010a0000180501a0501c0502405024050240502405024050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
