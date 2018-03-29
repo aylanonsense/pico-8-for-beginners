@@ -2,20 +2,54 @@ pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
 
-local pumpkin
 local score
-local coins
-local blocks
+local game_objects
 
 function _init()
 	-- start the score counter at zero
 	score=0
-	-- create a pumpkin object
-	pumpkin={
-		x=64,
-		y=24,
-		velocity_x=0,
-		velocity_y=0,
+	-- create the game objects
+	game_objects={}
+	-- create a pumpkin
+	make_pumpkin(64,24)
+	-- create some coins
+	local i
+	for i=1,3 do
+		make_coin(30+15*i,80)
+	end
+	-- create some blocks
+	for i=1,14 do
+		make_block(8*i,90)
+	end
+	make_block(50,50)
+	make_block(90,70)
+	make_block(30,82)
+end
+
+function _update()
+	local obj
+	-- update all the game objects
+	for obj in all(game_objects) do
+		obj:update()
+	end
+end
+
+function _draw()
+	-- clear the screen
+	cls()
+	-- draw the score
+	print(score,5,5,7)
+	-- draw all the game objects
+	local obj
+	for obj in all(game_objects) do
+		obj:draw()
+	end
+end
+
+
+-- game object creation functions
+function make_pumpkin(x,y)
+	return make_game_object("pumpkin",x,y,{
 		width=8,
 		height=8,
 		move_speed=1.5,
@@ -42,149 +76,143 @@ function _init()
 			-- apply the velocity
 			self.x+=self.velocity_x
 			self.y+=self.velocity_y
-			-- the pumpkin is standing on a block if its
-			--  bottom hitbox collide with one
+			-- check to see if hitting coins
+			for_each_game_object("coin",function(coin)
+				if self:check_for_hit(coin) and not coin.is_collected then
+					coin.is_collected=true
+					score+=1
+				end
+			end)
+			-- check to see if colliding with blocks
 			self.is_standing_on_block=false
+			for_each_game_object("block",function(block)
+				local collision_dir=self:check_for_collision(block,3.1)
+				self:handle_collision(block,collision_dir)
+				if collision_dir=="down" then
+					self.is_standing_on_block=true
+				end
+			end)
 		end,
 		draw=function(self)
-			-- local x,y,w,h=self.x,self.y,self.width,self.height
 			spr(4,self.x,self.y)
-			-- rect(self.x,self.y,self.x+self.width,self.y+self.height,7)
-			-- the top hitbox (blue)
-			-- rectfill(x+2,y,x+w-2,y+h/2,12)
-			-- -- the bottom hitbox (red)
-			-- rectfill(x+2,y+h/2,x+w-2,y+h,8)
-			-- -- the left hitbox (green)
-			-- rectfill(x,y+2,x+w/2,y+h-2,11)
-			-- -- the right hitbox (yellow)
-			-- rectfill(x+w/2,y+2,x+w,y+h-2,10)
-		end,
-		check_for_coin_collision=function(self,coin)
-			-- check to see if the pumpkin is aligned with the coin
-			if not coin.is_collected and bounding_boxes_overlapping(self,coin) then
-				coin.is_collected=true
-				score+=1
-			end
-		end,
-		check_for_block_collision=function(self,block)
-			-- calculate the four hitboxes
-			local x,y,w,h=self.x,self.y,self.width,self.height
-			local top_hitbox={x=x+3.1,y=y,width=w-6.2,height=h/2}
-			local bottom_hitbox={x=x+3.1,y=y+h/2,width=w-6.2,height=h/2}
-			local left_hitbox={x=x,y=y+3.1,width=w/2,height=h-6.2}
-			local right_hitbox={x=x+w/2,y=y+3.1,width=w/2,height=h-6.2}
-			if bounding_boxes_overlapping(bottom_hitbox,block) then
-				self.y=block.y-self.height
-				if self.velocity_y>0 then
-					self.velocity_y=0
-				end
-				self.is_standing_on_block=true
-			elseif bounding_boxes_overlapping(left_hitbox,block) then
-				self.x=block.x+block.width
-				if self.velocity_x<0 then
-					self.velocity_x=0
-				end
-			elseif bounding_boxes_overlapping(right_hitbox,block) then
-				self.x=block.x-self.width
-				if self.velocity_x>0 then
-					self.velocity_x=0
-				end
-			elseif bounding_boxes_overlapping(top_hitbox,block) then
-				self.y=block.y+block.height
-				if self.velocity_y<0 then
-					self.velocity_y=0
-				end
-			end
 		end
-	}
-	-- create some coins
-	coins={}
-	blocks={}
-	local i
-	for i=1,3 do
-		add(coins,make_coin(30+15*i,80))
-	end
-	for i=1,14 do
-		add(blocks,make_block(8*i,90))
-	end
-	add(blocks,make_block(50,50))
-	add(blocks,make_block(90,70))
-	add(blocks,make_block(30,82))
-end
-
-function _update()
-	pumpkin:update()
-	local coin
-	for coin in all(coins) do
-		coin:update()
-		pumpkin:check_for_coin_collision(coin)
-	end
-	local block
-	for block in all(blocks) do
-		block:update()
-		pumpkin:check_for_block_collision(block)
-	end
-end
-
-function _draw()
-	-- clear the screen
-	cls()
-	print(score,5,5,7)
-	pumpkin:draw()
-	local coin
-	for coin in all(coins) do
-		coin:draw()
-	end
-	local block
-	for block in all(blocks) do
-		block:draw()
-	end
+	})
 end
 
 function make_block(x,y)
-	return {
-		x=x,
-		y=y,
+	return make_game_object("block",x,y,{
 		width=8,
 		height=8,
-		update=function(self)
-		end,
 		draw=function(self)
 			spr(6,self.x,self.y)
 			-- rect(self.x,self.y,self.x+self.width,self.y+self.height,8)
 		end
-	}
+	})
 end
 
 function make_coin(x,y)
-	local coin={
-		x=x,
-		y=y,
+	return make_game_object("coin",x,y,{
 		width=6,
 		height=7,
 		is_collected=false,
-		update=function(self)
-		end,
 		draw=function(self)
 			if not self.is_collected then
 				spr(7,self.x,self.y)
 				-- rect(self.x,self.y,self.x+self.width,self.y+self.height,12)
 			end
 		end
+	})
+end
+
+function make_game_object(name,x,y,props)
+	local obj={
+		name=name,
+		x=x,
+		y=y,
+		velocity_x=0,
+		velocity_y=0,
+		update=function(self)
+			-- do nothing
+		end,
+		draw=function(self)
+			-- don't draw anything
+		end,
+		center=function(self)
+			return self.x+self.width/2,self.y+self.height/2
+		end,
+		check_for_hit=function(self,other)
+			return bounding_boxes_overlapping(self,other)
+		end,
+		check_for_collision=function(self,other,indent)
+			local x,y,w,h=self.x,self.y,self.width,self.height
+			local top_hitbox={x=x+indent,y=y,width=w-2*indent,height=h/2}
+			local bottom_hitbox={x=x+indent,y=y+h/2,width=w-2*indent,height=h/2}
+			local left_hitbox={x=x,y=y+indent,width=w/2,height=h-2*indent}
+			local right_hitbox={x=x+w/2,y=y+indent,width=w/2,height=h-2*indent}
+			if bounding_boxes_overlapping(bottom_hitbox,other) then
+				return "down"
+			elseif bounding_boxes_overlapping(left_hitbox,other) then
+				return "left"
+			elseif bounding_boxes_overlapping(right_hitbox,other) then
+				return "right"
+			elseif bounding_boxes_overlapping(top_hitbox,other) then
+				return "up"
+			end
+		end,
+		handle_collision=function(self,other,dir)
+			if dir=="down" then
+				self.y=other.y-self.height
+				if self.velocity_y>0 then
+					self.velocity_y=0
+				end
+			elseif dir=="left" then
+				self.x=other.x+other.width
+				if self.velocity_x<0 then
+					self.velocity_x=0
+				end
+			elseif dir=="right" then
+				self.x=other.x-self.width
+				if self.velocity_x>0 then
+					self.velocity_x=0
+				end
+			elseif dir=="up" then
+				self.y=other.y+other.height
+				if self.velocity_y<0 then
+					self.velocity_y=0
+				end
+			end
+		end
 	}
-	return coin
+	-- add additional properties
+	local key,value
+	for key,value in pairs(props) do
+		obj[key]=value
+	end
+	-- add it to the list of game objects
+	add(game_objects,obj)
+	-- return the game object
+	return obj
 end
 
-function lines_overlapping(min1,max1,min2,max2)
-	return max1>min2 and max2>min1
-end
 
+-- hit detection helper functions
 function rects_overlapping(left1,top1,right1,bottom1,left2,top2,right2,bottom2)
-	return lines_overlapping(left1,right1,left2,right2) and lines_overlapping(top1,bottom1,top2,bottom2)
+	return right1>left2 and right2>left1 and bottom1>top2 and bottom2>top1
 end
 
 function bounding_boxes_overlapping(obj1,obj2)
 	return rects_overlapping(obj1.x,obj1.y,obj1.x+obj1.width,obj1.y+obj1.height,obj2.x,obj2.y,obj2.x+obj2.width,obj2.y+obj2.height)
+end
+
+
+-- game object helper functions
+function for_each_game_object(name,callback)
+	local obj
+	for obj in all(game_objects) do
+		if obj.name==name then
+			callback(obj)
+		end
+	end
 end
 
 __gfx__
