@@ -5,78 +5,112 @@ __lua__
 local pumpkin
 local score
 local coins
+local blocks
 
 function _init()
+	-- start the score counter at zero
 	score=0
 	-- create a pumpkin object
 	pumpkin={
 		x=64,
-		y=64,
+		y=24,
+		velocity_x=0,
+		velocity_y=0,
 		width=8,
 		height=8,
-		radius=4,
-		move_speed=1,
-		is_horizontally_aligned=false,
-		is_vertically_aligned=false,
+		move_speed=1.5,
+		is_standing_on_block=false,
 		update=function(self)
+			-- apply friction
+			self.velocity_x*=0.2
+			-- move the player with the arrow keys
 			if btn(1) then
-				self.x+=self.move_speed
+				self.velocity_x=self.move_speed
 			end
 			if btn(0) then
-				self.x-=self.move_speed
+				self.velocity_x=-self.move_speed
 			end
-			if btn(3) then
-				self.y+=self.move_speed
+			-- jump when z is pressed
+			if btn(4) and self.is_standing_on_block then
+				self.velocity_y=-3
 			end
-			if btn(2) then
-				self.y-=self.move_speed
-			end
+			-- apply gravity
+			self.velocity_y+=0.1
+			-- make sure the velocity doesn't get too big
+			self.velocity_x=mid(-3,self.velocity_x,3)
+			self.velocity_y=mid(-3,self.velocity_y,3)
+			-- apply the velocity
+			self.x+=self.velocity_x
+			self.y+=self.velocity_y
+			-- the pumpkin is standing on a block if its
+			--  bottom hitbox collide with one
+			self.is_standing_on_block=false
 		end,
 		draw=function(self)
-			spr(4,self.x-4,self.y-4)
-			-- circ(self.x,self.y,self.radius,7)
+			-- local x,y,w,h=self.x,self.y,self.width,self.height
+			spr(4,self.x,self.y)
 			-- rect(self.x,self.y,self.x+self.width,self.y+self.height,7)
-			-- print(self.is_vertically_aligned,self.x+10,self.y,7)
-			-- print(self.is_horizontally_aligned,self.x+10,self.y+7,6)
+			-- the top hitbox (blue)
+			-- rectfill(x+2,y,x+w-2,y+h/2,12)
+			-- -- the bottom hitbox (red)
+			-- rectfill(x+2,y+h/2,x+w-2,y+h,8)
+			-- -- the left hitbox (green)
+			-- rectfill(x,y+2,x+w/2,y+h-2,11)
+			-- -- the right hitbox (yellow)
+			-- rectfill(x+w/2,y+2,x+w,y+h-2,10)
 		end,
-		check_for_collision=function(self,coin)
+		check_for_coin_collision=function(self,coin)
 			-- check to see if the pumpkin is aligned with the coin
-			local pumpkin_top=self.y
-			local pumpkin_bottom=self.y+self.height
-			local pumpkin_left=self.x
-			local pumpkin_right=self.x+self.width
-			local coin_top=coin.y
-			local coin_bottom=coin.y+coin.height
-			local coin_left=coin.x
-			local coin_right=coin.x+coin.width
-			-- collect the coin
-			if not coin.is_collected and circles_overlapping(self.x,self.y,self.radius,coin.x,coin.y,coin.radius) then -- rects_overlapping(pumpkin_left,pumpkin_top,pumpkin_right,pumpkin_bottom,coin_left,coin_top,coin_right,coin_bottom) then
+			if not coin.is_collected and bounding_boxes_overlapping(self,coin) then
 				coin.is_collected=true
 				score+=1
 			end
+		end,
+		check_for_block_collision=function(self,block)
+			-- calculate the four hitboxes
+			local x,y,w,h=self.x,self.y,self.width,self.height
+			local top_hitbox={x=x+3.1,y=y,width=w-6.2,height=h/2}
+			local bottom_hitbox={x=x+3.1,y=y+h/2,width=w-6.2,height=h/2}
+			local left_hitbox={x=x,y=y+3.1,width=w/2,height=h-6.2}
+			local right_hitbox={x=x+w/2,y=y+3.1,width=w/2,height=h-6.2}
+			if bounding_boxes_overlapping(bottom_hitbox,block) then
+				self.y=block.y-self.height
+				if self.velocity_y>0 then
+					self.velocity_y=0
+				end
+				self.is_standing_on_block=true
+			elseif bounding_boxes_overlapping(left_hitbox,block) then
+				self.x=block.x+block.width
+				if self.velocity_x<0 then
+					self.velocity_x=0
+				end
+			elseif bounding_boxes_overlapping(right_hitbox,block) then
+				self.y=block.y+block.height
+				if self.velocity_x>0 then
+					self.velocity_x=0
+				end
+				self.x=block.x-self.width
+			elseif bounding_boxes_overlapping(top_hitbox,block) then
+				self.y=block.y+block.height
+				if self.velocity_y<0 then
+					self.velocity_y=0
+				end
+			end
 		end
 	}
-	coins={
-		make_coin(10,10),
-		make_coin(40,20),
-		make_coin(30,40),
-		make_coin(70,80),
-		make_coin(90,50),
-		make_coin(20,50)
-	}
-	-- coin={
-	-- 	x=80,
-	-- 	y=100,
-	-- 	is_collected=false,
-	-- 	update=function(self)
-	-- 	end,
-	-- 	draw=function(self)
-	-- 		if not self.is_collected then
-	-- 			spr(7,self.x-3,self.y-4)
-	-- 			-- pset(self.x,self.y,12)
-	-- 		end
-	-- 	end
-	-- }
+	-- create some coins
+	coins={}
+	blocks={}
+	local i
+	for i=1,3 do
+		add(coins,make_coin(30+15*i,80))
+	end
+	for i=1,14 do
+		add(blocks,make_block(8*i,90))
+	end
+	add(blocks,make_block(50,50))
+	add(blocks,make_block(90,70))
+	add(blocks,make_block(30,82))
 end
 
 function _update()
@@ -84,7 +118,12 @@ function _update()
 	local coin
 	for coin in all(coins) do
 		coin:update()
-		pumpkin:check_for_collision(coin)
+		pumpkin:check_for_coin_collision(coin)
+	end
+	local block
+	for block in all(blocks) do
+		block:update()
+		pumpkin:check_for_block_collision(block)
 	end
 end
 
@@ -97,6 +136,25 @@ function _draw()
 	for coin in all(coins) do
 		coin:draw()
 	end
+	local block
+	for block in all(blocks) do
+		block:draw()
+	end
+end
+
+function make_block(x,y)
+	return {
+		x=x,
+		y=y,
+		width=8,
+		height=8,
+		update=function(self)
+		end,
+		draw=function(self)
+			spr(6,self.x,self.y)
+			-- rect(self.x,self.y,self.x+self.width,self.y+self.height,8)
+		end
+	}
 end
 
 function make_coin(x,y)
@@ -105,24 +163,17 @@ function make_coin(x,y)
 		y=y,
 		width=6,
 		height=7,
-		radius=3,
 		is_collected=false,
 		update=function(self)
 		end,
 		draw=function(self)
 			if not self.is_collected then
-				spr(7,self.x-3,self.y-3)
-				-- circ(self.x,self.y,self.radius,12)
+				spr(7,self.x,self.y)
 				-- rect(self.x,self.y,self.x+self.width,self.y+self.height,12)
-				-- pset(self.x,self.y,12)
 			end
 		end
 	}
 	return coin
-end
-
-function is_point_in_rect(x,y,left,top,right,bottom)
-	return top<y and y<bottom and left<x and x<right
 end
 
 function lines_overlapping(min1,max1,min2,max2)
@@ -133,21 +184,19 @@ function rects_overlapping(left1,top1,right1,bottom1,left2,top2,right2,bottom2)
 	return lines_overlapping(left1,right1,left2,right2) and lines_overlapping(top1,bottom1,top2,bottom2)
 end
 
-function circles_overlapping(x1,y1,r1,x2,y2,r2)
-	local dx=mid(-100,x2-x1,100)
-	local dy=mid(-100,y2-y1,100)
-	return dx*dx+dy*dy<(r1+r2)*(r1+r2)
+function bounding_boxes_overlapping(obj1,obj2)
+	return rects_overlapping(obj1.x,obj1.y,obj1.x+obj1.width,obj1.y+obj1.height,obj2.x,obj2.y,obj2.x+obj2.width,obj2.y+obj2.height)
 end
 
 __gfx__
-000000000000000000500500000000000000b0000000b0000000b000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000cc0550cc00000000000b3000000b3000000b3000009aa0000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000ccc55ccc00000000099b39400eeb3e200ccb3c1009aaaa000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000ccc55ccc0000000099494994ee2e2ee2cc1c1cc109aaaa000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000cee55eec0000000094999494e2eee2e2c1ccc1c109aaaa000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000eee55eee0000000094999499e2eee2eec1ccc1cc09aaaa000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000ee00ee00000000094999499e2eee2eec1ccc1cc009aa0000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000094994900e2ee2e00c1cc1c0000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000b0000000000077777777000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000b3000000000007666666d009aa0000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000099b3940000000007677776d09aaaa000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000994949940000000076766d6d09aaaa000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000949994940000000076766d6d09aaaa000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000949994990000000076dddd6d09aaaa000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000094999499000000007666666d009aa0000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000949949000000000dddddddd000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 010a0000180501a0501c0502405024050240502405024050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 011300001b0661b0661b0661b0641b0671b0641b0630d0000d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
