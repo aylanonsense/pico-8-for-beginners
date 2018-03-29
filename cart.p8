@@ -85,11 +85,10 @@ function _init()
 					self.velocity_x=0
 				end
 			elseif bounding_boxes_overlapping(right_hitbox,block) then
-				self.y=block.y+block.height
+				self.x=block.x-self.width
 				if self.velocity_x>0 then
 					self.velocity_x=0
 				end
-				self.x=block.x-self.width
 			elseif bounding_boxes_overlapping(top_hitbox,block) then
 				self.y=block.y+block.height
 				if self.velocity_y<0 then
